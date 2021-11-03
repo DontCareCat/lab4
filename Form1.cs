@@ -173,6 +173,7 @@ namespace lab4_3axuct_wf
             dataGridView1.DataSource = null;
             w = new Wocabulary();
             current = 0;
+            button10_Click(sender,e);
         }
 
         private void button5_Click(object sender, EventArgs e)
@@ -357,96 +358,36 @@ namespace lab4_3axuct_wf
             foreach(string path in listBox1.Items)
             {
                 string file = File.ReadAllText(path);
+                file = new string(file.Where(c => !char.IsPunctuation(c)).ToArray());
                 string wpath = PathToEncoded(path);
 
+                DataView dv = dt.DefaultView;
+                dv.Sort = "char";
+                dt = dv.ToTable();
+                dataGridView1.DataSource = dt;
+                List<char> chars = new List<char>();
+                for(int i=0;i<dt.Rows.Count;i++)
+                {
+                    chars.Add(Convert.ToChar(dt.Rows[i][0]));
+                }
+                int a = 0;
+                for (int x = chars.Count; x != 1; x--)
+                {
+                    if (gcb(x, chars.Count) == 1)
+                        a = x;
+                }
                 using (StreamWriter sw = new StreamWriter(wpath))
                 {
-                    for(int i=0;i<file.Length;i++)
+                    foreach (char c in file)
                     {
-                        for(int j=0;j<dt.Rows.Count;j++)
-                        {
-                            if (Convert.ToChar(dt.Rows[j][0]) == file[i])
-                                sw.Write($"{j} ");
-                        }
+                        int x = chars.IndexOf(c);
+                        int encIndex = (a * x + 5) % dt.Rows.Count;
+                        sw.Write(dt.Rows[encIndex][0]);
                     }
                 }
             }
         }
-        /*private void EncodeAthens2(DataTable dt)
-        {
-            foreach (string path in listBox1.Items)
-            {
-                string file = File.ReadAllText(path);
-                string wpath = PathToEncoded(path);
 
-                using (StreamWriter sw = new StreamWriter(wpath))
-                {
-                    for (int i = 0; i < file.Length; i+=2)
-                    {
-                        string bigram = null;
-                        if (file.Length - i >= 2)
-                        {
-                            bigram = file.Substring(i, 2);
-                        }
-                        else
-                        {
-                            bigram = file.Substring(i,1)+' ';
-                        }
-                        bool found = false;
-                        for (int j = 0; j < dt.Rows.Count; j++)
-                        {
-                            if ((string)dt.Rows[j][0] == bigram)
-                            {
-                                sw.Write($"{j} ");
-                                found = true;
-                            }
-                        }
-                        if (!found)
-                            sw.Write("= ");
-                    }
-                }
-            }
-        }
-        private void EncodeAthens3(DataTable dt)
-        {
-            foreach (string path in listBox1.Items)
-            {
-                string file = File.ReadAllText(path);
-                string wpath = PathToEncoded(path);
-
-                using (StreamWriter sw = new StreamWriter(wpath))
-                {
-                    for (int i = 0; i < file.Length; i += 3)
-                    {
-                        string threegram = null;
-                        switch (file.Length - i)
-                        {
-                            case 1:
-                                threegram = file.Substring(i, 1) + "  ";
-                                break;
-                            case 2:
-                                threegram = file.Substring(i, 2) + " ";
-                                break;
-                            default:
-                                threegram = file.Substring(i, 3);
-                                break;
-                        }
-
-                        bool found = false;
-                        for (int j = 0; j < dt.Rows.Count; j++)
-                        {
-                            if ((string)dt.Rows[j][0] == threegram)
-                            {
-                                sw.Write($"{j} ");
-                                found = true;
-                            }
-                        }
-                        if (!found)
-                            sw.Write("= ");
-                    }
-                }
-            }
-        }*/
         private string PathToEncoded(string ReadingPath)
         {
             string[] tmp = ReadingPath.Split("\\");
@@ -485,29 +426,40 @@ namespace lab4_3axuct_wf
 
         private void DecodeAthens1(DataTable dt)
         {
+            DataView dv = dt.DefaultView;
+            dv.Sort = "char";
+            dt = dv.ToTable();
+            List<char> chars = new List<char>();
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                chars.Add(Convert.ToChar(dt.Rows[i][0]));
+            }
+            int a = 0;
+            for (int x = chars.Count; x !=1; x--)
+            {
+                if (gcb(x, chars.Count) == 1)
+                    a = x;
+            }
             foreach (string path in listBox1.Items)
             {
                 string wpath = PathToDecoded(path);
-                string[] file = File.ReadAllText(path).Split();
+                string file = File.ReadAllText(path);
+                file = new string(file.Where(c => !char.IsPunctuation(c)).ToArray());
 
                 using (StreamWriter sw = new StreamWriter(wpath))
                 {
-                    for (int i = 0; i < file.Length-1; i++)
+                    int aInvers = MultiplicativeInverse(a);
+                    foreach (char c in file)
                     {
-                        int num = Convert.ToInt32(file[i]);
-                        sw.Write(dt.Rows[num][0]);
+                        int x = chars.IndexOf(c);
+                        if (x - 5 < 0)
+                            x += chars.Count;
+                        int decIndex = (aInvers * (x - 5)) % chars.Count;
+                        sw.Write(chars[decIndex]);
                     }
                 }
             }
         }
-        /*private void DecodeAthens2(DataTable dt)
-        {
-
-        }
-        private void DecodeAthens3(DataTable dt)
-        {
-
-        }*/
         private string PathToDecoded(string ReadingPath)
         {
             string[] tmp = ReadingPath.Split("\\");
@@ -524,6 +476,22 @@ namespace lab4_3axuct_wf
         private void button10_Click(object sender, EventArgs e)
         {
             listBox1.Items.Clear();
+        }
+        public int MultiplicativeInverse(int a)
+        {
+            for (int i = 1; i < dataGridView1.Rows.Count + 1; i++)
+            {
+                if ((a * i) % dataGridView1.Rows.Count == 1)
+                {
+                    return i;
+                }
+            }
+            throw new Exception("No Multiplicative Inverse Found");
+        }
+        int gcb(int a, int b)
+        {
+            if (b == 0) return a;
+            return gcb(b, a % b);
         }
     }
 }
